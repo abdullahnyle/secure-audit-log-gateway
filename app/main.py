@@ -7,9 +7,10 @@ from typing import Annotated
 
 from fastapi import Depends, FastAPI
 
+from app.api import logs as logs_router
 from app.config import Settings, get_settings
-from app.db.mongo import close_mongo_connection, connect_to_mongo, ping_mongo
-from app.middleware.jwt_auth import JWTClaims
+from app.db.indexes import ensure_indexes
+from app.db.mongo import close_mongo_connection, connect_to_mongo, get_db, ping_mongo
 from app.schemas.log_entry import HealthResponse
 
 
@@ -17,6 +18,7 @@ from app.schemas.log_entry import HealthResponse
 async def lifespan(app: FastAPI):
     """Startup/shutdown hooks. Runs once per process."""
     await connect_to_mongo()
+    await ensure_indexes(get_db())
     yield  # ← app serves requests during this period
     await close_mongo_connection()
 
@@ -27,6 +29,8 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
+
+app.include_router(logs_router.router)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -43,18 +47,3 @@ async def health(settings: Annotated[Settings, Depends(get_settings)]) -> Health
         mongo=mongo_ok,
         version=settings.app_version,
     )
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Protected routes (JWT required)
-# ─────────────────────────────────────────────────────────────────────────────
-
-@app.post("/api/logs/write", tags=["logs"])
-async def write_log(claims: JWTClaims) -> dict:
-    """Skeleton — real implementation lands on Day 2.
-    Currently just echoes the caller's JWT claims as proof the auth layer works."""
-    return {
-        "status": "not_implemented",
-        "message": "Day 2 will land the actual write path.",
-        "authenticated_as": claims.get("sub"),
-    }
