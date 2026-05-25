@@ -17,6 +17,12 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from app.core.hashing import GENESIS_HASH, compute_hash
 
+def _now_ms() -> datetime:
+    """UTC now, truncated to millisecond precision (matches BSON storage)."""
+    n = datetime.now(timezone.utc)
+    return n.replace(microsecond=(n.microsecond // 1000) * 1000)
+
+
 _MAX_RETRIES = 5  # generous; real contention should resolve in 1-2 tries
 
 
@@ -55,7 +61,7 @@ def _stringify_for_hash(entry: dict[str, Any]) -> dict[str, Any]:
     for k, v in entry.items():
         if isinstance(v, datetime):
             # ISO-8601 with Z suffix for UTC, microsecond precision
-            out[k] = v.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+            out[k] = (v if v.tzinfo else v.replace(tzinfo=timezone.utc)).astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
         else:
             out[k] = v
     return out
@@ -81,7 +87,7 @@ async def append_entry(
         entry: dict[str, Any] = {
             **client_payload,
             "log_id": str(uuid4()),
-            "received_at": datetime.now(timezone.utc),
+            "received_at": _now_ms(),
             "schema_version": schema_version,
             "source_ip": source_ip,
             "prev_hash": prev_hash,

@@ -2,13 +2,29 @@
 
 Position B validation: strict on critical fields (severity, timestamps),
 tolerant on cosmetic ones (message, metadata).
+
+Datetime serialization note: `received_at` and `timestamp` are serialized
+in a fixed form (ISO-8601 with explicit Z suffix for UTC, naive datetimes
+treated as UTC). This MUST match _stringify_for_hash in app/db/chain.py
+byte-for-byte, or client-side chain verification will fail.
 """
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, field_serializer
+
+
+def _serialize_dt(v: datetime) -> str:
+    """Produce the canonical ISO string used in both hashing and API output.
+
+    Naive datetimes are treated as UTC (Mongo strips tzinfo on store, so reads
+    come back naive even though the original write was UTC-aware).
+    """
+    if v.tzinfo is None:
+        v = v.replace(tzinfo=timezone.utc)
+    return v.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -32,45 +48,22 @@ class Severity(str, Enum):
 class LogEntryIn(BaseModel):
     """Client-supplied fields. Server adds 5 more before storage."""
 
-    # Forbid extra fields the client didn't declare — prevents accidental
-    # garbage and stops attackers from injecting fields like `prev_hash`.
     model_config = ConfigDict(extra="forbid")
 
     timestamp: datetime = Field(
         ...,
         description="ISO 8601 timestamp from the client. Server records its own arrival time separately.",
     )
-    service: str = Field(
-        ...,
-        min_length=1,
-        max_length=100,
-        description="Name of the service emitting the log (e.g. 'auth-service').",
-    )
-    severity: Severity = Field(
-        ...,
-        description="One of DEBUG, INFO, WARN, ERROR, CRITICAL. Strictly validated.",
-    )
-    event_type: str = Field(
-        ...,
-        min_length=1,
-        max_length=100,
-        description="Short identifier for the event (e.g. 'user.login.failed').",
-    )
-    user_id: str | None = Field(
-        default=None,
-        max_length=100,
-        description="Optional user identifier. None for system events.",
-    )
-    message: str = Field(
-        ...,
-        min_length=1,
-        max_length=10_000,
-        description="Human-readable description. Tolerant: any printable string under 10KB.",
-    )
-    metadata: dict[str, Any] = Field(
-        default_factory=dict,
-        description="Free-form structured context. Tolerant: any JSON-serializable dict.",
-    )
+    service: str = Field(..., min_length=1, max_length=100)
+    severity: Severity = Field(...)
+    event_type: str = Field(..., min_length=1, max_length=100)
+    user_id: str | None = Field(default=None, max_length=100)
+    message: str = Field(..., min_length=1, max_length=10_000)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @field_serializer("timestamp")
+    def _ser_timestamp(self, v: datetime) -> str:
+        return _serialize_dt(v)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -78,16 +71,19 @@ class LogEntryIn(BaseModel):
 # ─────────────────────────────────────────────────────────────────────────────
 
 class LogEntryOut(LogEntryIn):
-    """Full record after server-side enrichment. Inherits all client fields,
-    adds the 5 server-controlled ones from your schema decision."""
+    """Full record after server-side enrichment."""
 
     model_config = ConfigDict(extra="forbid")
 
-    log_id: UUID = Field(..., description="Server-generated UUID, primary identifier.")
-    received_at: datetime = Field(..., description="Server clock at the moment of receipt.")
-    prev_hash: str = Field(..., description="Hash of the previous log entry — chains entries for tamper-evidence.")
-    schema_version: int = Field(..., description="Schema version of this entry, for future migrations.")
-    source_ip: str = Field(..., description="IP address that submitted the log (from request).")
+    log_id: UUID = Field(...)
+    received_at: datetime = Field(...)
+    prev_hash: str = Field(...)
+    schema_version: int = Field(...)
+    source_ip: str = Field(...)
+
+    @field_serializer("received_at")
+    def _ser_received_at(self, v: datetime) -> str:
+        return _serialize_dt(v)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -95,19 +91,16 @@ class LogEntryOut(LogEntryIn):
 # ─────────────────────────────────────────────────────────────────────────────
 
 class LogQuery(BaseModel):
-    """Query parameters for filtering logs. All optional — empty query returns
-    recent logs (capped by `limit`)."""
-
     model_config = ConfigDict(extra="forbid")
 
-    service: str | None = Field(default=None, description="Filter by exact service name.")
-    severity: Severity | None = Field(default=None, description="Filter by exact severity.")
-    event_type: str | None = Field(default=None, description="Filter by exact event_type.")
-    user_id: str | None = Field(default=None, description="Filter by exact user_id.")
-    start_time: datetime | None = Field(default=None, description="Inclusive lower bound on `timestamp`.")
-    end_time: datetime | None = Field(default=None, description="Inclusive upper bound on `timestamp`.")
-    limit: int = Field(default=100, ge=1, le=1000, description="Max results, 1–1000.")
-    offset: int = Field(default=0, ge=0, description="Pagination offset.")
+    service: str | None = Field(default=None)
+    severity: Severity | None = Field(default=None)
+    event_type: str | None = Field(default=None)
+    user_id: str | None = Field(default=None)
+    start_time: datetime | None = Field(default=None)
+    end_time: datetime | None = Field(default=None)
+    limit: int = Field(default=100, ge=1, le=1000)
+    offset: int = Field(default=0, ge=0)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -115,14 +108,12 @@ class LogQuery(BaseModel):
 # ─────────────────────────────────────────────────────────────────────────────
 
 class HealthResponse(BaseModel):
-    """Response for GET /health."""
-    status: str = Field(..., description="'ok' when healthy, 'degraded' otherwise.")
-    mongo: bool = Field(..., description="Whether MongoDB is reachable.")
-    version: str = Field(..., description="Gateway version (from config).")
+    status: str = Field(...)
+    mongo: bool = Field(...)
+    version: str = Field(...)
 
 
 class ErrorResponse(BaseModel):
-    """Standardized error envelope for all 4xx/5xx responses."""
-    error: str = Field(..., description="Short error code (e.g. 'invalid_token').")
-    detail: str = Field(..., description="Human-readable explanation.")
-    request_id: str | None = Field(default=None, description="For log correlation.")
+    error: str = Field(...)
+    detail: str = Field(...)
+    request_id: str | None = Field(default=None)

@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Audit Log Admin</title>
+  <link rel="stylesheet" href="/admin/css/app.css">
+  <script defer src="https://unpkg.com/alpinejs@3.14.1/dist/cdn.min.js"></script>
+</head>
+<body>
+  <div x-data="adminApp()" x-init="init()">
+
+    <!-- Header bar -->
+    <header class="app-header">
+      <div class="app-header-inner">
+        <h1>Audit Log Admin</h1>
+        <div class="header-actions">
+          <button class="btn-verify" @click="verify" :disabled="verifying || entries.length === 0">
+            <span x-show="!verifying">🔒 Verify Chain</span>
+            <span x-show="verifying">Verifying…</span>
+          </button>
+          <span class="user-badge" x-text="username"></span>
+          <button class="btn-secondary" @click="logout">Logout</button>
+        </div>
+      </div>
+    </header>
+
+    <main class="app-main">
+
+      <!-- Verification banner -->
+      <section class="verify-banner" x-show="chainStatus" :class="chainStatusClass">
+        <strong x-show="chainStatus === 'ok'">✓ Chain verified.</strong>
+        <strong x-show="chainStatus === 'broken'">✗ Chain integrity FAILED.</strong>
+        <span x-text="verifyMessage"></span>
+      </section>
+
+      <!-- Filter bar -->
+      <section class="filter-bar">
+        <div class="filter-group">
+          <label>
+            <span>Service</span>
+            <input type="text" x-model="filters.service" placeholder="e.g. auth-service">
+          </label>
+          <label>
+            <span>Severity</span>
+            <select x-model="filters.severity">
+              <option value="">Any</option>
+              <option>DEBUG</option>
+              <option>INFO</option>
+              <option>WARN</option>
+              <option>ERROR</option>
+              <option>CRITICAL</option>
+            </select>
+          </label>
+          <label>
+            <span>Event type</span>
+            <input type="text" x-model="filters.event_type" placeholder="e.g. user.login.success">
+          </label>
+          <label>
+            <span>User ID</span>
+            <input type="text" x-model="filters.user_id" placeholder="e.g. u-42">
+          </label>
+        </div>
+        <div class="filter-actions">
+          <button class="btn-primary" @click="applyFilters">Apply</button>
+          <button class="btn-secondary" @click="clearFilters">Clear</button>
+        </div>
+      </section>
+
+      <!-- Status / error -->
+      <p class="status" x-show="loading">Loading entries…</p>
+      <p class="error" x-show="error" x-text="error"></p>
+
+      <!-- Entries table -->
+      <section class="table-wrapper" x-show="!loading && !error">
+        <table class="entries-table">
+          <thead>
+            <tr>
+              <th class="verify-col">Chain</th>
+              <th>Received</th>
+              <th>Service</th>
+              <th>Severity</th>
+              <th>Event type</th>
+              <th>User</th>
+              <th>Message</th>
+              <th class="hash-col">prev_hash</th>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-for="entry in entries" :key="entry.log_id">
+              <tr :class="rowClass(entry.log_id)">
+                <td class="verify-col">
+                  <span class="chain-icon" x-html="chainIcon(entry.log_id)"></span>
+                </td>
+                <td x-text="formatTime(entry.received_at)"></td>
+                <td x-text="entry.service"></td>
+                <td>
+                  <span class="severity-pill" :class="'sev-' + entry.severity.toLowerCase()" x-text="entry.severity"></span>
+                </td>
+                <td x-text="entry.event_type"></td>
+                <td x-text="entry.user_id || '—'"></td>
+                <td x-text="entry.message" class="msg-col"></td>
+                <td class="hash-col" :title="entry.prev_hash" x-text="shortHash(entry.prev_hash)"></td>
+              </tr>
+            </template>
+            <tr x-show="entries.length === 0">
+              <td colspan="8" class="empty-row">No entries match the current filters.</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- Pagination -->
+      <section class="pagination" x-show="!loading && !error">
+        <button class="btn-secondary" @click="prevPage" :disabled="offset === 0">← Previous</button>
+        <span class="page-info">
+          Showing <span x-text="offset + 1"></span>–<span x-text="offset + entries.length"></span>
+        </span>
+        <button class="btn-secondary" @click="nextPage" :disabled="entries.length < limit">Next →</button>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- chain.js must load before app.js (app.js calls verifyChain) -->
+  <script src="/admin/js/chain.js"></script>
+  <script src="/admin/js/app.js"></script>
+</body>
+</html>

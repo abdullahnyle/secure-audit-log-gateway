@@ -1,0 +1,376 @@
+/* Audit Log Admin — base styles */
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: #f4f6f9;
+  color: #1a2a44;
+  line-height: 1.5;
+}
+
+/* ── Login page ─────────────────────────────────────────────────── */
+
+.login-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.login-card {
+  background: white;
+  padding: 2rem 2.5rem;
+  border-radius: 8px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+  width: 100%;
+  max-width: 380px;
+}
+
+.login-card h1 {
+  margin: 0 0 0.25rem;
+  font-size: 1.5rem;
+  color: #1a2a44;
+}
+
+.login-card .subtitle {
+  margin: 0 0 1.5rem;
+  color: #6b7280;
+  font-size: 0.9rem;
+}
+
+.login-card label {
+  display: block;
+  margin-bottom: 1rem;
+}
+
+.login-card label span {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 0.35rem;
+  color: #374151;
+}
+
+.login-card input {
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  font-size: 0.95rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: white;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.login-card input:focus {
+  outline: none;
+  border-color: #1a2a44;
+  box-shadow: 0 0 0 3px rgba(26, 42, 68, 0.1);
+}
+
+.login-card input:disabled {
+  background: #f9fafb;
+  cursor: not-allowed;
+}
+
+.login-card button {
+  width: 100%;
+  padding: 0.7rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: white;
+  background: #1a2a44;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s;
+  margin-top: 0.5rem;
+}
+
+.login-card button:hover:not(:disabled) {
+  background: #243553;
+}
+
+.login-card button:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+}
+
+.login-card .error {
+  margin-top: 1rem;
+  padding: 0.6rem 0.8rem;
+  background: #fef2f2;
+  color: #991b1b;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  border: 1px solid #fecaca;
+}
+
+/* ── App layout ─────────────────────────────────────────────────── */
+
+.app-header {
+  background: #1a2a44;
+  color: white;
+  padding: 0.85rem 1.5rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.app-header-inner {
+  max-width: 1400px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.app-header h1 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.user-badge {
+  background: rgba(255, 255, 255, 0.12);
+  padding: 0.3rem 0.7rem;
+  border-radius: 4px;
+  font-size: 0.85rem;
+}
+
+.app-main {
+  max-width: 1400px;
+  margin: 1.5rem auto;
+  padding: 0 1.5rem;
+}
+
+/* ── Buttons ────────────────────────────────────────────────────── */
+
+.btn-primary, .btn-secondary {
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  border-radius: 6px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.btn-primary {
+  background: #1a2a44;
+  color: white;
+}
+.btn-primary:hover:not(:disabled) { background: #243553; }
+
+.btn-secondary {
+  background: white;
+  color: #1a2a44;
+  border-color: #d1d5db;
+}
+.btn-secondary:hover:not(:disabled) { background: #f3f4f6; }
+
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ── Filter bar ─────────────────────────────────────────────────── */
+
+.filter-bar {
+  background: white;
+  padding: 1rem 1.25rem;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  margin-bottom: 1.25rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: flex-end;
+}
+
+.filter-group {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  flex: 1;
+}
+
+.filter-group label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 140px;
+}
+
+.filter-group label span {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.filter-group input, .filter-group select {
+  padding: 0.45rem 0.6rem;
+  font-size: 0.875rem;
+  border: 1px solid #d1d5db;
+  border-radius: 5px;
+  background: white;
+}
+
+.filter-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+/* ── Status messages ────────────────────────────────────────────── */
+
+.status {
+  padding: 1rem;
+  text-align: center;
+  color: #6b7280;
+}
+
+.error {
+  padding: 0.8rem 1rem;
+  background: #fef2f2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  margin-bottom: 1rem;
+}
+
+/* ── Entries table ──────────────────────────────────────────────── */
+
+.table-wrapper {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  overflow-x: auto;
+}
+
+.entries-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.entries-table th {
+  text-align: left;
+  padding: 0.75rem 1rem;
+  background: #f9fafb;
+  font-weight: 600;
+  color: #374151;
+  border-bottom: 1px solid #e5e7eb;
+  white-space: nowrap;
+}
+
+.entries-table td {
+  padding: 0.7rem 1rem;
+  border-bottom: 1px solid #f3f4f6;
+  vertical-align: top;
+}
+
+.entries-table tbody tr:hover { background: #fafbfc; }
+
+.msg-col { max-width: 320px; }
+.hash-col {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.78rem;
+  color: #6b7280;
+}
+
+.empty-row {
+  text-align: center;
+  padding: 2rem;
+  color: #9ca3af;
+}
+
+/* ── Severity pills ─────────────────────────────────────────────── */
+
+.severity-pill {
+  display: inline-block;
+  padding: 0.15rem 0.55rem;
+  border-radius: 3px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
+.sev-debug    { background: #e5e7eb; color: #4b5563; }
+.sev-info     { background: #dbeafe; color: #1e40af; }
+.sev-warn     { background: #fef3c7; color: #92400e; }
+.sev-error    { background: #fee2e2; color: #991b1b; }
+.sev-critical { background: #1a2a44; color: white; }
+
+/* ── Pagination ─────────────────────────────────────────────────── */
+
+.pagination {
+  margin-top: 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+}
+
+.page-info {
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+
+/* ── Verify button & banner ─────────────────────────────────────── */
+
+.btn-verify {
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #1a2a44;
+  background: #fbbf24;
+  border: 1px solid #f59e0b;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.btn-verify:hover:not(:disabled) { background: #f59e0b; }
+.btn-verify:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.verify-banner {
+  padding: 0.8rem 1rem;
+  border-radius: 6px;
+  margin-bottom: 1.25rem;
+  font-size: 0.9rem;
+  border: 1px solid transparent;
+}
+
+.banner-ok {
+  background: #d1fae5;
+  color: #065f46;
+  border-color: #6ee7b7;
+}
+
+.banner-broken {
+  background: #fee2e2;
+  color: #991b1b;
+  border-color: #fca5a5;
+}
+
+.verify-banner strong { margin-right: 0.5rem; }
+
+/* ── Chain icons in table ───────────────────────────────────────── */
+
+.verify-col { width: 60px; text-align: center; }
+
+.chain-icon { font-size: 1.1rem; font-weight: 700; }
+.chain-ok      { color: #059669; }
+.chain-broken  { color: #dc2626; }
+.chain-pending { color: #d1d5db; }
+
+.row-broken {
+  background: #fef2f2 !important;
+}
+.row-broken:hover {
+  background: #fee2e2 !important;
+}

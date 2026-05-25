@@ -6,8 +6,10 @@ from contextlib import asynccontextmanager
 from typing import Annotated
 
 from fastapi import Depends, FastAPI
+from fastapi.staticfiles import StaticFiles
 
 from app.api import logs as logs_router
+from app.api import admin as admin_router
 from app.config import Settings, get_settings
 from app.db.indexes import ensure_indexes
 from app.db.mongo import close_mongo_connection, connect_to_mongo, get_db, ping_mongo
@@ -31,6 +33,10 @@ app = FastAPI(
 )
 
 app.include_router(logs_router.router)
+app.include_router(admin_router.router)
+
+# Serve the admin UI static files at /admin/*
+app.mount("/admin", StaticFiles(directory="app/static", html=True), name="admin-ui")
 
 
 # ─────────────────────────────────────────────────────────────────────────────

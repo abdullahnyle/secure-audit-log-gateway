@@ -37,6 +37,11 @@ class Settings(BaseSettings):
     jwt_algorithm: str = Field(default="HS256")
     jwt_issuer: str | None = Field(default=None, description="Expected `iss` claim, if enforced.")
 
+    # ─── Admin UI ─────────────────────────────────────────────────────
+    admin_username: str = Field(default="admin", description="Username for the admin login form.")
+    admin_password_hash: str = Field(..., description="bcrypt hash of the admin password. Generate via scripts/make_admin_password_hash.")
+    admin_jwt_lifetime_hours: int = Field(default=24, ge=1, le=168, description="How long an admin JWT stays valid after login.")
+
     # ─── Schema ───────────────────────────────────────────────────────
     schema_version: int = Field(default=1, description="Stamped on every stored log entry.")
 

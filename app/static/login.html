@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Login — Audit Log Gateway</title>
+  <link rel="stylesheet" href="/admin/css/app.css">
+  <!-- Alpine.js from CDN. `defer` is required by Alpine. -->
+  <script defer src="https://unpkg.com/alpinejs@3.14.1/dist/cdn.min.js"></script>
+</head>
+<body>
+  <main class="login-container">
+    <div class="login-card" x-data="loginForm()">
+      <h1>Audit Log Admin</h1>
+      <p class="subtitle">Sign in to view and verify the audit chain</p>
+
+      <form @submit.prevent="submit">
+        <label>
+          <span>Username</span>
+          <input
+            type="text"
+            x-model="username"
+            autocomplete="username"
+            required
+            :disabled="loading"
+          >
+        </label>
+
+        <label>
+          <span>Password</span>
+          <input
+            type="password"
+            x-model="password"
+            autocomplete="current-password"
+            required
+            :disabled="loading"
+          >
+        </label>
+
+        <button type="submit" :disabled="loading">
+          <span x-show="!loading">Sign in</span>
+          <span x-show="loading">Signing in…</span>
+        </button>
+
+        <p class="error" x-show="error" x-text="error"></p>
+      </form>
+    </div>
+  </main>
+
+  <script src="/admin/js/login.js"></script>
+</body>
+</html>
