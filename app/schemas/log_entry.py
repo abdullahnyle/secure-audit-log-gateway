@@ -10,10 +10,10 @@ byte-for-byte, or client-side chain verification will fail.
 """
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any
+from typing import Annotated, Any
 from uuid import UUID
 
-from pydantic import BaseModel, Field, ConfigDict, field_serializer
+from pydantic import BaseModel, BeforeValidator, Field, ConfigDict, field_serializer
 
 
 def _serialize_dt(v: datetime) -> str:
@@ -25,6 +25,25 @@ def _serialize_dt(v: datetime) -> str:
     if v.tzinfo is None:
         v = v.replace(tzinfo=timezone.utc)
     return v.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def _require_string_timestamp(v: object) -> object:
+    """Reject non-string inputs before Pydantic's default datetime coercion runs.
+
+    Pydantic v2's default coerces ints/floats via datetime.fromtimestamp(), which
+    silently turns a client's 12345 into 1970-01-01T03:25:45Z. For an audit log
+    where stored timestamps must reflect client-claimed values, that silent
+    coercion is a data-integrity failure. This validator runs before the
+    datetime parser and rejects anything that isn't a string outright; valid
+    ISO 8601 strings pass through unchanged for normal parsing to handle.
+    """
+    if not isinstance(v, str):
+        raise ValueError("timestamp must be a string in ISO 8601 format")
+    return v
+
+
+# ISO 8601 datetime that explicitly refuses numeric/boolean inputs.
+ISOTimestamp = Annotated[datetime, BeforeValidator(_require_string_timestamp)]
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -50,7 +69,7 @@ class LogEntryIn(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    timestamp: datetime = Field(
+    timestamp: ISOTimestamp = Field(
         ...,
         description="ISO 8601 timestamp from the client. Server records its own arrival time separately.",
     )
