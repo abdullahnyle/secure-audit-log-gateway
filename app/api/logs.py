@@ -5,6 +5,7 @@ Mounted under /api/logs in app.main.
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request, status
+from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from app.config import Settings, get_settings
 from app.db.chain import append_entry
@@ -26,6 +27,7 @@ async def write_log(
     request: Request,
     claims: JWTClaims,
     settings: Annotated[Settings, Depends(get_settings)],
+    db: Annotated[AsyncIOMotorDatabase, Depends(get_db)],
 ) -> LogEntryOut:
     """Validate, enrich, hash-chain, and persist a log entry.
 
@@ -40,7 +42,7 @@ async def write_log(
     source_ip = request.client.host if request.client else "unknown"
 
     entry = await append_entry(
-        get_db(),
+        db,
         client_payload=payload.model_dump(mode="json"),
         schema_version=settings.schema_version,
         source_ip=source_ip,
@@ -57,6 +59,7 @@ async def write_log(
 async def query_logs(
     claims: JWTClaims,
     query: Annotated[LogQuery, Depends()],
+    db: Annotated[AsyncIOMotorDatabase, Depends(get_db)],
 ) -> list[LogEntryOut]:
     """Return log entries matching the filters, newest first.
 
@@ -67,8 +70,6 @@ async def query_logs(
     not `received_at` — debugging usually cares about when the event happened,
     not when the gateway saw it.
     """
-    db = get_db()
-
     # Build the filter dict by including only fields the caller set.
     # Pydantic gave us a model — we walk its non-None fields.
     mongo_filter: dict = {}
