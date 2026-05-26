@@ -10,7 +10,7 @@ import jwt
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from app.config import get_settings
+from app.config import Settings, get_settings
 
 # HTTPBearer extracts the token from `Authorization: Bearer <token>`.
 # auto_error=False so WE control the error response shape (matches ErrorResponse).
@@ -30,6 +30,7 @@ def _unauthorized(detail: str) -> HTTPException:
 async def verify_jwt(
     request: Request,
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer_scheme)],
+    settings: Annotated[Settings, Depends(get_settings)],
 ) -> dict[str, Any]:
     """FastAPI dependency: validates the bearer token, returns decoded claims.
 
@@ -48,7 +49,6 @@ async def verify_jwt(
         raise _unauthorized("invalid_auth_scheme")
 
     token = credentials.credentials
-    settings = get_settings()
 
     try:
         claims = jwt.decode(

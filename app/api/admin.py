@@ -11,25 +11,28 @@ requests from Modules 13/17.
 """
 
 from datetime import datetime, timedelta, timezone
+from typing import Annotated
 
 import bcrypt
 import jwt
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 
-from app.config import get_settings
+from app.config import Settings, get_settings
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
 
 class LoginRequest(BaseModel):
     """Body of POST /api/admin/login."""
+
     username: str = Field(..., min_length=1, max_length=64)
     password: str = Field(..., min_length=1, max_length=256)
 
 
 class LoginResponse(BaseModel):
     """Response from POST /api/admin/login on success."""
+
     access_token: str = Field(..., description="JWT to include as Bearer token on subsequent requests.")
     token_type: str = Field(default="bearer")
     expires_in: int = Field(..., description="Seconds until the token expires.")
@@ -41,9 +44,10 @@ class LoginResponse(BaseModel):
     status_code=status.HTTP_200_OK,
     summary="Admin login — returns a JWT for the admin UI.",
 )
-async def login(body: LoginRequest) -> LoginResponse:
-    settings = get_settings()
-
+async def login(
+    body: LoginRequest,
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> LoginResponse:
     # Compare username in constant-ish time. Python's == on short strings
     # isn't strictly constant-time, but for a lab project with one admin
     # user this is fine; bcrypt below is the real defense.
