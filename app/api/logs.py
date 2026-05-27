@@ -19,7 +19,7 @@ router = APIRouter(prefix="/api/logs", tags=["logs"])
 @router.post(
     "/write",
     response_model=LogEntryOut,
-    status_code=status.HTTP_201_CREATED,
+    status_code=status.HTTP_202_ACCEPTED,
     summary="Append a new log entry to the chain",
 )
 async def write_log(
