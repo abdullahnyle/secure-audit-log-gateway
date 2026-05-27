@@ -165,4 +165,4 @@ async def test_valid_payload_with_optional_fields_writes(client, auth_headers, v
     valid_payload["user_id"] = "test-user-42"
     valid_payload["metadata"] = {"client_ip": "10.0.0.1", "request_id": "abc-123"}
     resp = await client.post("/api/logs/write", json=valid_payload, headers=auth_headers)
-    assert resp.status_code == 201, resp.text
+    assert resp.status_code == 202, resp.text

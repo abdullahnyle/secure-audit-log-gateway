@@ -107,6 +107,6 @@ async def test_bad_token_returns_401(
 
 async def test_valid_service_token_writes_log(client, valid_log_payload, auth_headers):
     """Sanity check that the fixtures all align: with a valid token the request
-    actually reaches the handler and writes a log entry (201)."""
+    actually reaches the handler and writes a log entry (202)."""
     resp = await client.post("/api/logs/write", json=valid_log_payload, headers=auth_headers)
-    assert resp.status_code == 201, resp.text
+    assert resp.status_code == 202, resp.text
