@@ -120,3 +120,52 @@ async def append_entry(
     raise RuntimeError(
         f"Failed to advance chain after {_MAX_RETRIES} retries — check for contention."
     )
+
+
+def verify_chain(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Verify a list of entries forms an intact hash chain.
+
+    Mirrors the JS verifier in app/static/js/chain.js byte-for-byte.
+    Two independent implementations of the same security primitive — if
+    they disagree on a chain, that disagreement is itself a bug surface.
+
+    Args:
+        entries: Newest-first list of entry dicts, as returned by
+                 /api/logs/query or fetched directly from Mongo.
+                 Native datetime objects are fine — _stringify_for_hash
+                 handles conversion before hashing.
+
+    Returns:
+        List of {log_id, status, expected, actual} dicts in the same
+        (newest-first) order as the input.
+        status values:
+            'genesis' — oldest entry, prev_hash matches the genesis sentinel
+            'ok'      — prev_hash matches the hash of the preceding entry
+            'broken'  — prev_hash does not match expected value
+        Walk continues after a break (downstream entries may cascade as
+        'broken').
+    """
+    if not entries:
+        return []
+
+    oldest_first = list(reversed(entries))
+    results = []
+    expected_prev_hash = GENESIS_HASH
+
+    for entry in oldest_first:
+        if entry["prev_hash"] == expected_prev_hash:
+            status = "genesis" if expected_prev_hash == GENESIS_HASH else "ok"
+        else:
+            status = "broken"
+
+        results.append({
+            "log_id": entry["log_id"],
+            "status": status,
+            "expected": expected_prev_hash,
+            "actual": entry["prev_hash"],
+        })
+
+        expected_prev_hash = compute_hash(_stringify_for_hash(entry))
+
+    results.reverse()
+    return results
