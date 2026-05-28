@@ -165,7 +165,7 @@ def verify_chain(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
             "actual": entry["prev_hash"],
         })
 
-        expected_prev_hash = compute_hash(_stringify_for_hash(entry))
+        expected_prev_hash = compute_hash(_stringify_for_hash({k: v for k, v in entry.items() if k != "_id"}))
 
     results.reverse()
     return results
