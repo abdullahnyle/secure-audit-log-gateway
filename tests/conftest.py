@@ -136,6 +136,12 @@ def auth_headers(service_token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {service_token}"}
 
 
+@pytest.fixture
+def admin_headers(admin_token: str) -> dict[str, str]:
+    """Authorization header for routes restricted to admin JWTs."""
+    return {"Authorization": f"Bearer {admin_token}"}
+
+
 # ─── Invalid JWT fixtures (for negative auth tests) ───────────────────
 
 

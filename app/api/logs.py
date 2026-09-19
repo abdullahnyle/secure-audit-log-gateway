@@ -10,7 +10,7 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 from app.config import Settings, get_settings
 from app.db.chain import append_entry
 from app.db.mongo import get_db
-from app.middleware.jwt_auth import JWTClaims
+from app.middleware.jwt_auth import AdminClaims, JWTClaims
 from app.schemas.log_entry import LogEntryIn, LogEntryOut, LogQuery
 
 router = APIRouter(prefix="/api/logs", tags=["logs"])
@@ -43,7 +43,9 @@ async def write_log(
 
     entry = await append_entry(
         db,
-        client_payload=payload.model_dump(mode="json"),
+        # Keep timestamps as BSON datetimes so MongoDB range comparisons use
+        # the same type on both sides. Hashing normalizes them to ISO strings.
+        client_payload=payload.model_dump(mode="python"),
         schema_version=settings.schema_version,
         source_ip=source_ip,
     )
@@ -57,13 +59,13 @@ async def write_log(
     summary="Query log entries with filters and pagination",
 )
 async def query_logs(
-    claims: JWTClaims,
+    claims: AdminClaims,
     query: Annotated[LogQuery, Depends()],
     db: Annotated[AsyncIOMotorDatabase, Depends(get_db)],
 ) -> list[LogEntryOut]:
     """Return log entries matching the filters, newest first.
 
-    All filter fields are optional. Empty query returns the most recent
+    Requires an admin-role JWT. All filter fields are optional. Empty query returns the most recent
     `limit` entries (default 100, max 1000). Pagination via `offset`.
 
     `start_time`/`end_time` filter on the *client-supplied* `timestamp`,

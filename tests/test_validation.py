@@ -166,3 +166,20 @@ async def test_valid_payload_with_optional_fields_writes(client, auth_headers, v
     valid_payload["metadata"] = {"client_ip": "10.0.0.1", "request_id": "abc-123"}
     resp = await client.post("/api/logs/write", json=valid_payload, headers=auth_headers)
     assert resp.status_code == 202, resp.text
+
+
+@pytest.mark.parametrize(
+    "metadata",
+    [
+        {"dose": 1.0},
+        {"nested": [1, {"dose": 2.5}]},
+        {"too_large": 2**53},
+    ],
+    ids=["float", "nested_float", "unsafe_integer"],
+)
+async def test_metadata_rejects_numbers_that_javascript_cannot_reproduce(
+    client, auth_headers, valid_payload, metadata,
+):
+    valid_payload["metadata"] = metadata
+    resp = await client.post("/api/logs/write", json=valid_payload, headers=auth_headers)
+    assert resp.status_code == 422, resp.text

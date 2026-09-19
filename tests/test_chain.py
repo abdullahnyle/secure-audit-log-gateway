@@ -18,8 +18,9 @@ from uuid import uuid4
 
 import pytest
 
+import app.db.chain as chain_module
 from app.core.hashing import GENESIS_HASH, compute_hash
-from app.db.chain import _stringify_for_hash
+from app.db.chain import _stringify_for_hash, append_entry
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -136,6 +137,7 @@ _CANONICAL = {
     "received_at": "2026-05-27T12:00:01Z",
     "schema_version": 1,
     "source_ip": "127.0.0.1",
+    "prev_hash": GENESIS_HASH,
 }
 
 
@@ -153,6 +155,7 @@ _CANONICAL = {
         ("received_at", "2099-01-01T00:00:00Z"),
         ("schema_version", 999),
         ("source_ip", "9.9.9.9"),
+        ("prev_hash", "f" * 64),
     ],
 )
 def test_mutating_any_hashable_field_changes_hash(field, new_value):
@@ -172,6 +175,18 @@ def test_mutating_any_hashable_field_changes_hash(field, new_value):
         f"mutating {field!r} did NOT change the hash — "
         f"field is likely not included in canonical_json"
     )
+
+
+def test_changing_prev_hash_changes_current_and_downstream_hashes():
+    """A rewritten predecessor link must alter this entry's own hash."""
+    original_hash = compute_hash(_CANONICAL)
+    relinked = {**_CANONICAL, "prev_hash": "a" * 64}
+
+    assert compute_hash(relinked) != original_hash
+
+    successor = {**_CANONICAL, "log_id": str(uuid4()), "prev_hash": original_hash}
+    rewritten_successor = {**successor, "prev_hash": compute_hash(relinked)}
+    assert compute_hash(successor) != compute_hash(rewritten_successor)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -196,3 +211,50 @@ async def test_chain_survives_back_to_back_writes(client, auth_headers, test_db)
             f"chain break at entry {i} (back-to-back write regression): "
             f"recomputed={recomputed}, stored={entries[i]['prev_hash']}"
         )
+
+
+async def test_insert_failure_does_not_advance_tail(monkeypatch):
+    """The tail must remain unchanged when entry insertion fails."""
+    class FailingEntries:
+        async def insert_one(self, entry):
+            raise RuntimeError("simulated insert failure")
+
+    class TrackingChainState:
+        def __init__(self):
+            self.update_called = False
+
+        async def update_one(self, *args, **kwargs):
+            self.update_called = True
+
+    class FakeDatabase:
+        def __init__(self):
+            self.entries = FailingEntries()
+            self.chain_state = TrackingChainState()
+
+        def __getitem__(self, name):
+            return self.entries if name == "entries" else self.chain_state
+
+    database = FakeDatabase()
+
+    async def fixed_tail(_db):
+        return {"last_hash": GENESIS_HASH}
+
+    monkeypatch.setattr(chain_module, "_get_or_init_tail", fixed_tail)
+
+    with pytest.raises(RuntimeError, match="simulated insert failure"):
+        await append_entry(
+            database,
+            client_payload={
+                "timestamp": datetime.now(timezone.utc),
+                "service": "test-service",
+                "severity": "INFO",
+                "event_type": "test.failure",
+                "user_id": None,
+                "message": "insert should fail",
+                "metadata": {},
+            },
+            schema_version=1,
+            source_ip="127.0.0.1",
+        )
+
+    assert database.chain_state.update_called is False

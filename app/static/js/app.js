@@ -101,6 +101,35 @@ function adminApp() {
     },
 
     // ── Chain verification ───────────────────────────────────────────
+    async fetchCompleteChain() {
+      const pageSize = 1000;
+      const complete = [];
+      let chainOffset = 0;
+
+      while (true) {
+        const params = new URLSearchParams({
+          limit: String(pageSize),
+          offset: String(chainOffset),
+        });
+        const response = await fetch(`/api/logs/query?${params}`, {
+          headers: { 'Authorization': `Bearer ${this.token}` },
+        });
+
+        if (response.status === 401) {
+          this.logout();
+          throw new Error('Admin session expired.');
+        }
+        if (!response.ok) {
+          throw new Error(`Server returned status ${response.status}.`);
+        }
+
+        const page = await response.json();
+        complete.push(...page);
+        if (page.length < pageSize) return complete;
+        chainOffset += pageSize;
+      }
+    },
+
     async verify() {
       if (this.entries.length === 0) return;
       this.verifying = true;
@@ -108,8 +137,10 @@ function adminApp() {
       this.verifyMessage = '';
 
       try {
-        // verifyChain comes from chain.js, loaded before this script
-        const results = await verifyChain(this.entries);
+        // Verification deliberately ignores the current display filters and
+        // pagination. verifyChain needs the complete history, not one page.
+        const completeChain = await this.fetchCompleteChain();
+        const results = await verifyChain(completeChain);
 
         // Index by log_id for fast row lookups
         const byId = {};
@@ -119,7 +150,7 @@ function adminApp() {
         const broken = results.filter(r => r.status === 'broken');
         if (broken.length === 0) {
           this.chainStatus = 'ok';
-          this.verifyMessage = `All ${results.length} entries verified. The chain is intact.`;
+          this.verifyMessage = `All ${results.length} stored entries form a consistent chain.`;
         } else {
           this.chainStatus = 'broken';
           const ids = broken.map(b => b.log_id.slice(0, 8)).join(', ');

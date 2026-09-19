@@ -13,7 +13,17 @@ from enum import Enum
 from typing import Annotated, Any
 from uuid import UUID
 
-from pydantic import BaseModel, BeforeValidator, Field, ConfigDict, field_serializer
+from pydantic import (
+    BaseModel,
+    BeforeValidator,
+    ConfigDict,
+    Field,
+    field_serializer,
+    field_validator,
+)
+
+
+MAX_SAFE_JSON_INTEGER = 2**53 - 1
 
 
 def _serialize_dt(v: datetime) -> str:
@@ -44,6 +54,33 @@ def _require_string_timestamp(v: object) -> object:
 
 # ISO 8601 datetime that explicitly refuses numeric/boolean inputs.
 ISOTimestamp = Annotated[datetime, BeforeValidator(_require_string_timestamp)]
+
+
+def _validate_metadata_value(value: Any, path: str = "metadata") -> Any:
+    """Keep metadata reproducible in both Python and JavaScript.
+
+    JavaScript represents every JSON number as a binary floating-point value,
+    while Python distinguishes integers and floats. Restricting metadata to
+    strings, booleans, null, arrays, objects, and safe integers avoids cases
+    such as Python's ``1.0`` versus JavaScript's ``1``.
+    """
+    if value is None or isinstance(value, (str, bool)):
+        return value
+    if isinstance(value, int):
+        if abs(value) > MAX_SAFE_JSON_INTEGER:
+            raise ValueError(f"{path} contains an integer outside JavaScript's safe range")
+        return value
+    if isinstance(value, float):
+        raise ValueError(f"{path} contains a floating-point value; use a string if decimals matter")
+    if isinstance(value, list):
+        for index, item in enumerate(value):
+            _validate_metadata_value(item, f"{path}[{index}]")
+        return value
+    if isinstance(value, dict):
+        for key, item in value.items():
+            _validate_metadata_value(item, f"{path}.{key}")
+        return value
+    raise ValueError(f"{path} contains an unsupported value")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -80,7 +117,12 @@ class LogEntryIn(BaseModel):
     message: str = Field(..., min_length=1, max_length=10_000)
     metadata: dict[str, Any] = Field(default_factory=dict)
 
-    @field_serializer("timestamp")
+    @field_validator("metadata")
+    @classmethod
+    def _metadata_has_cross_language_json_shape(cls, value: dict[str, Any]) -> dict[str, Any]:
+        return _validate_metadata_value(value)
+
+    @field_serializer("timestamp", when_used="json")
     def _ser_timestamp(self, v: datetime) -> str:
         return _serialize_dt(v)
 
@@ -94,13 +136,16 @@ class LogEntryOut(LogEntryIn):
 
     model_config = ConfigDict(extra="forbid")
 
+    # Stored MongoDB records use BSON datetimes. The input model above remains
+    # strict about requiring clients to send an ISO-8601 string.
+    timestamp: datetime = Field(...)
     log_id: UUID = Field(...)
     received_at: datetime = Field(...)
     prev_hash: str = Field(...)
     schema_version: int = Field(...)
     source_ip: str = Field(...)
 
-    @field_serializer("received_at")
+    @field_serializer("received_at", when_used="json")
     def _ser_received_at(self, v: datetime) -> str:
         return _serialize_dt(v)
 

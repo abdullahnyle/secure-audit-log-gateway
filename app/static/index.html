@@ -29,8 +29,8 @@
 
       <!-- Verification banner -->
       <section class="verify-banner" x-show="chainStatus" :class="chainStatusClass">
-        <strong x-show="chainStatus === 'ok'">✓ Chain verified.</strong>
-        <strong x-show="chainStatus === 'broken'">✗ Chain integrity FAILED.</strong>
+        <strong x-show="chainStatus === 'ok'">✓ Links verified.</strong>
+        <strong x-show="chainStatus === 'broken'">✗ Chain check failed.</strong>
         <span x-text="verifyMessage"></span>
       </section>
 

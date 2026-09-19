@@ -1,15 +1,16 @@
 /**
  * Client-side chain verifier.
  *
- * Mirrors the server's hashing logic byte-for-byte:
- *   - exclude `prev_hash`
+ * Mirrors the server's hashing logic for the schema's supported JSON values:
+ *   - exclude MongoDB's storage-only `_id`
+ *   - include `prev_hash`
  *   - sort keys recursively
  *   - compact separators (no whitespace)
  *   - UTF-8 SHA-256
  *
- * Independence from the server is the whole point: if the server's data
- * has been tampered with, the server can't be trusted to verify it.
- * The browser does the math.
+ * This duplicate implementation is useful for catching implementation errors.
+ * It is not an external trust anchor because the server supplies both the
+ * application code and the entries being checked.
  */
 
 const GENESIS_HASH = '0'.repeat(64);
@@ -42,10 +43,10 @@ function sortKeysRecursive(value) {
  * Returns a Uint8Array (the UTF-8 bytes), suitable for hashing.
  */
 function canonicalJson(entry) {
-  // 1. Drop prev_hash (can't be part of its own input)
+  // 1. Drop only MongoDB's storage-only identifier.
   const filtered = {};
   for (const [k, v] of Object.entries(entry)) {
-    if (k !== 'prev_hash') filtered[k] = v;
+    if (k !== '_id') filtered[k] = v;
   }
 
   // 2. Recursively sort keys
@@ -77,9 +78,10 @@ async function computeHash(entry) {
 }
 
 /**
- * Verify a list of entries forms an intact chain.
+ * Verify a complete, newest-first chain.
  *
- * Entries from /api/logs/query come back newest-first (received_at desc).
+ * The caller must supply the complete unfiltered history. Entries from
+ * /api/logs/query come back newest-first (received_at desc).
  * The chain links oldest -> newest: each entry's prev_hash is the hash
  * of the entry RECEIVED BEFORE IT. So we reverse to oldest-first, then
  * walk forward.
@@ -121,4 +123,10 @@ async function verifyChain(entries) {
   // Restore original (newest-first) order to match how entries are displayed
   results.reverse();
   return results;
+}
+
+// Allow dependency-free regression checks under Node without changing the
+// browser global functions used by the admin page.
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { canonicalJson, computeHash, verifyChain };
 }

@@ -81,3 +81,16 @@ async def verify_jwt(
 # Type alias for cleaner route signatures.
 # Lets you write `claims: JWTClaims` instead of the verbose Annotated form.
 JWTClaims = Annotated[dict[str, Any], Depends(verify_jwt)]
+
+
+async def require_admin(claims: JWTClaims) -> dict[str, Any]:
+    """Require the role issued by the admin login route."""
+    if claims.get("role") != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="admin_role_required",
+        )
+    return claims
+
+
+AdminClaims = Annotated[dict[str, Any], Depends(require_admin)]

@@ -1,7 +1,9 @@
 """Chain-aware insertion for the entries collection.
 
-Each write atomically advances a tail pointer in `chain_state` and inserts
-into `entries`. The tail pointer holds the hash of the most recent entry,
+Each write inserts a candidate entry, then conditionally advances a tail
+pointer in `chain_state`. These are separate operations, not a transaction.
+The order ensures an insertion failure cannot advance the tail to a missing
+entry. The tail pointer holds the hash of the most recent committed entry,
 which becomes the next entry's `prev_hash`.
 
 Concurrency model: optimistic. Read the tail, compute the new entry's hash,
@@ -74,7 +76,7 @@ async def append_entry(
     schema_version: int,
     source_ip: str,
 ) -> dict[str, Any]:
-    """Append one entry to the chain atomically. Returns the full stored doc.
+    """Append one entry with an insert-then-compare-and-set sequence.
 
     Raises RuntimeError if the chain can't be advanced after _MAX_RETRIES
     (indicates serious contention or a bug — not expected in normal use).
@@ -96,6 +98,10 @@ async def append_entry(
         # Hash uses the string-normalized form so verification is reproducible.
         new_hash = compute_hash(_stringify_for_hash(entry))
 
+        # Insert first so an insertion failure cannot leave the tail pointing
+        # at a record that does not exist. A losing candidate is removed below.
+        await db["entries"].insert_one(entry)
+
         # Conditional tail advance: only succeeds if no other writer raced us.
         advance = await db["chain_state"].update_one(
             {"_id": "tail", "last_hash": prev_hash},
@@ -109,13 +115,13 @@ async def append_entry(
         )
 
         if advance.modified_count == 1:
-            # We won the race. Safe to insert.
-            await db["entries"].insert_one(entry)
             # Strip Mongo's _id before returning — not part of our schema.
             entry.pop("_id", None)
             return entry
 
-        # Lost the race; loop and re-read tail.
+        # Lost the race. This candidate was never committed by the tail, so
+        # remove it before rebuilding against the winner's hash.
+        await db["entries"].delete_one({"log_id": entry["log_id"]})
 
     raise RuntimeError(
         f"Failed to advance chain after {_MAX_RETRIES} retries — check for contention."
@@ -125,9 +131,7 @@ async def append_entry(
 def verify_chain(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Verify a list of entries forms an intact hash chain.
 
-    Mirrors the JS verifier in app/static/js/chain.js byte-for-byte.
-    Two independent implementations of the same security primitive — if
-    they disagree on a chain, that disagreement is itself a bug surface.
+    Mirrors the supported canonical form in app/static/js/chain.js.
 
     Args:
         entries: Newest-first list of entry dicts, as returned by
